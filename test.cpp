@@ -8,18 +8,42 @@ extern "C" {
 
 #include <stdlib.h>
 #include <algorithm>
+#include <string.h>
 #define BUCKET_NUM 100
 #define CUT_LOW 0
-#define CUT_UP 0.99
+#define CUT_UP 1
+
+#include "read_file.h"
 
 using namespace std;
 
-int main()
+int main3()
 {
-	char* fileNameMrc = "D:\\#CS\\MRC\\gammas-lowpass\\1.mrc";
+	char fileNameMrc[] = "Data/1.mrc";
 	MRC mrcData(fileNameMrc, "rb");
 	if (mrcData.m_header.nx == -31415)
 	{
+		return -1;
+	}
+
+	// printf("File < %s > has been read:\n", fileNameMrc);
+	// printf("MRC Header:\n-----------------------\n");
+	// // mrcData.printInfo();
+	// printf("--------------------------\n");
+
+	FILE* f = fopen("Data/svm.ddd", "w+");
+	read_MRC_And_Star(fileNameMrc, "Data/1.star", f);
+
+	return 0;
+}
+
+int main()
+{
+	char fileNameMrc[] = "Data/1.mrc";
+	MRC mrcData(fileNameMrc, "rb");
+	if (mrcData.m_header.nx == -31415)
+	{
+		// 'nx = -31415' marks whether the .mrc file has been read.
 		return -1;
 	}
 
@@ -34,8 +58,8 @@ int main()
 	int imWordLength = mrcData.getWordLength();
 
 	BMP* bmpOutput = BMP_Create(imWidth, imHeight, 24);
-	float* imLine = (float*)malloc((size_t)((int)(imWidth * 1.1) * sizeof(float)));
-	int lineLen = 0;
+	float* imLine = (float*)malloc((size_t)((int)(imWidth * 1.1) * sizeof(float)));  // 临时存储 MRC 的一行像素，预留10%的冗余空间
+	int lineLen = 0;  // 
 	float imMin = mrcData.getMin();
 	float imMax = mrcData.getMax();
 
@@ -51,7 +75,8 @@ int main()
 		lineLen = mrcData.readLine(imLine, 0, i);  // When (lineLen > imWidth), the RAM will be confused.
 		lineLen = lineLen / imWordLength;
 		if (lineLen != imWidth) {
-			printf("********** MRC data format error! Line: %d: Pixel-numbers = %d\timWidth(getNx) = %d\n", i, lineLen, imWidth);
+			printf("********** MRC data format error! **********\n");
+			printf("Line: %d: Pixel-numbers = %d,\timWidth(getNx) = %d\n", i, lineLen, imWidth);
 		}
 
 		for (int j = 0; j < lineLen; j++)
@@ -64,17 +89,18 @@ int main()
 			if (imLine[j] >= imMax)
 			{
 				printf("##### MaxGet #####\n");
-				bucketId = BUCKET_NUM - 1;
+				bucketId = BUCKET_NUM - 1;  // 其他区间都是左闭右开，这里把最后一个桶改成全闭区间
 			}
 			bucketCount[bucketId] += 1;
 		}
 	}
 	for (int i = 0; i < BUCKET_NUM; i++)
 	{
-		printf("%d ", bucketCount[i]);
+		printf("%d: \t%d\n", i, bucketCount[i]);
 	}
 	printf("\n\n");
 
+	// Search for the BucketCutPosition
 	int cutMinId = BUCKET_NUM, cutMaxId = 0;  // cutMinId.leftBound <= ?? <= cutMaxId.rightBount
 	long tmpPixelCount = 0;
 	for (int i = 0; i < BUCKET_NUM; i++)
@@ -121,7 +147,7 @@ int main()
 				tmpPixel = (int)((imLine[j] - cutMinId * bucketLen - imMin) / (bucketLen * (cutMaxId + 1 - cutMinId)) * 255);
 			}
 			//tmpPixel = (int)((imLine[j] - imMin) / (imMax - imMin) * 255);  // ----------
-			tmpGrey = (UCHAR)tmpPixel;
+			tmpGrey = (UCHAR)0;
 			BMP_SetPixelRGB(bmpOutput, j, i, tmpGrey, tmpGrey, tmpGrey);
 		}
 	}

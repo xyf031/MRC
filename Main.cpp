@@ -1,11 +1,12 @@
 #include <stdio.h>
-#include <io.h>
+// #include <io.h>
+// #include <direct.h>
 #include <string.h>
 
 #include "read_file.h"
 
 
-int main0()
+int main()
 {
 	printf("\n");
 	// http://blog.csdn.net/onlyonename/article/details/8521492
@@ -16,7 +17,7 @@ int main0()
 	// svm-predict.exe 1.data output.model output.file
 
 
-	char root[] = "D:\\#CS\\0324SVM\\#\\";
+	char root[] = "~/Data/";
 	char mrcRoot[FILE_NAME_LENGTH] = "";
 	//strcat(mrcRoot, root);
 	//strcat(mrcRoot, "*.mrc");

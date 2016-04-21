@@ -1,6 +1,8 @@
 // Version: 2016-03-24-15:09
 // By Xiao Yifan
 
+#pragma once
+
 #include <iostream>
 #include <fstream>
 #include <algorithm>
@@ -145,7 +147,7 @@ int read_MRC_And_Star(const char* fileNameMrc, const char* fileNameStar, FILE* s
 	if (imWordLength != 4 || sizeof(float) != 4)
 	{
 		printf("********** Vital ERROR **********\n");
-		printf("The MRC WorldLength:\t%d. The sizeof float is:\t%d.\nBoth of they must be 4, otherwise the mrc.cpp has to be changed.\n", imWordLength, sizeof(float));
+		printf("The MRC WorldLength:\t%d. The sizeof float is:\t%lu.\nBoth of they must be 4, otherwise the mrc.cpp has to be changed.\n", imWordLength, sizeof(float));
 		return -2;
 	}
 
