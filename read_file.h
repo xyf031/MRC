@@ -17,7 +17,10 @@ extern "C" {
 #define FILE_NAME_LENGTH 100
 #define BMP_DEPTH 24
 #define BOX_SIDE_LENGTH 100
-#define BUCKET_NUM 100
+
+#define BUCKET_NUM 1000
+#define CUT_LOW 0.00001
+#define CUT_UP 0.99999
 
 using namespace std;
 
@@ -47,7 +50,6 @@ void drawBox(BMP* mrc, int center_x, int center_y, int max_x, int max_y, int sid
 		BMP_SetPixelRGB(mrc, xMin, i, r, g, b);
 		BMP_SetPixelRGB(mrc, xMax, i, r, g, b);
 	}
-
 }
 
 
@@ -122,7 +124,7 @@ int fprintfSVM(MRC m, FILE* f, int center_x, int center_y, int max_x, int max_y,
 }
 
 
-int read_MRC_And_Star(const char* fileNameMrc, const char* fileNameStar, FILE* svmFile) {
+int read_MRC_And_Star(const char* fileNameMrc, const char* fileNameStar = NULL, FILE* svmFile = NULL) {
 	/* Return: -1 -> MRC File Not Exist;  -2 -> MRC readLine() Fails;  -3 -> Star File Not Exist;  -4*/
 
 
@@ -130,35 +132,28 @@ int read_MRC_And_Star(const char* fileNameMrc, const char* fileNameStar, FILE* s
 	MRC mrcData(fileNameMrc, "rb");
 	if (mrcData.m_header.nx == -31415)
 	{
+		// 'nx = -31415' marks whether this .mrc file has been read.
 		return -1;
 	}
 
-	printf("File < %s > has been read:\n", fileNameMrc);
+	printf("\n~~~~~~~~~~~~File < %s > has been read:~~~~~~~~~~~~\n", fileNameMrc);
 	printf("MRC Header:\n-----------------------\n");
 	mrcData.printInfo();
 	printf("--------------------------\n");
 
 	int imWidth = mrcData.getNx();
 	int imHeight = mrcData.getNy();
-	int imSize = imWidth * imHeight;
 	int imWordLength = mrcData.getWordLength();
-	printf("Pixel numbers (Width * Height): \t%d \t= %d \t* %d\n", imSize, imWidth, imHeight);
+	long imSize = imWidth * imHeight;
+	printf("Pixel numbers (Width * Height): \t%ld \t= %d \t* %d\n", imSize, imWidth, imHeight);
 
 	if (imWordLength != 4 || sizeof(float) != 4)
 	{
 		printf("********** Vital ERROR **********\n");
-		printf("The MRC WorldLength:\t%d. The sizeof float is:\t%lu.\nBoth of they must be 4, otherwise the mrc.cpp has to be changed.\n", imWordLength, sizeof(float));
+		printf("The MRC WorldLength:\t%d. The sizeof float is:\t%lu.\n", imWordLength, sizeof(float));
+		printf("Both of they must be 4, otherwise the mrc.cpp has to be changed.\n");
 		return -2;
 	}
-
-
-	/* Read Star File */
-	int starPointNum = preGetTotalNum(fileNameStar);  // Test .star file and printf the star-point num.
-	if (starPointNum < 0)
-	{
-		return -3;
-	}
-	MRCStar starData = MRCStar(fileNameStar, starPointNum);
 
 
 	/* Create BMP */
@@ -183,56 +178,145 @@ int read_MRC_And_Star(const char* fileNameMrc, const char* fileNameStar, FILE* s
 	float imMax = mrcData.getMax();
 
 	// Find Quantiles
-	int bucketCount[BUCKET_NUM];
+	// 第一轮读取，统计各桶像素数
+	int bucketCount[BUCKET_NUM];  // 桶的编号从0开始
 	memset((void *)bucketCount, 0, sizeof(bucketCount));
+	float bucketLen = (imMax - imMin) / BUCKET_NUM;
 
-
-
-
-
-	int tmpPixel;
-	UCHAR tmpGrey;
-
+	int bucketId;
 	for (int i = 0; i < imHeight; i++)
 	{
 		lineLen = mrcData.readLine(imLine, 0, i);  // When (lineLen > imWidth), the RAM will be confused.
 		lineLen = lineLen / imWordLength;
 		if (lineLen != imWidth) {
-			printf("********** MRC data format error! Line: %d: Pixel-numbers = %d\timWidth(getNx) = %d\n", i, lineLen, imWidth);
+			printf("********** MRC data format error! **********\n");
+			printf("Line: %d: Pixel-numbers = %d,\timWidth(getNx) = %d\n", i, lineLen, imWidth);
 		}
 
 		for (int j = 0; j < lineLen; j++)
 		{
-			tmpPixel = (int)((imLine[j] - imMin) / (imMax - imMin) * 255);  // ----------
+			bucketId = (int)((imLine[j] - imMin) / bucketLen);
+			if (imLine[j] <= imMin)
+			{
+				printf("##### MinGet #####\n");
+			}
+			if (imLine[j] >= imMax)
+			{
+				printf("##### MaxGet #####\n");
+				bucketId = BUCKET_NUM - 1;  // 其他区间都是左闭右开，这里把最后一个桶改成全闭区间
+			}
+			bucketCount[bucketId] += 1;
+		}
+	}
+
+	// Search for the BucketCutPosition
+	int cutMinId = BUCKET_NUM, cutMaxId = 0;  // cutMinId.leftBound <= *** <= cutMaxId.rightBount
+	bool minGot = false;
+	long tmpPixelCount = 0;
+	for (int i = 0; i < BUCKET_NUM; i++)
+	{
+		tmpPixelCount += bucketCount[i];
+		if (!minGot && imSize * CUT_LOW <= (double)tmpPixelCount)
+		{
+			// cutMinId = min(cutMinId, i);
+			cutMinId = i;
+			minGot = true;
+		}
+		if ((double)tmpPixelCount >= imSize * CUT_UP)
+		{
+			cutMaxId = i;
+			break;
+		}
+	}
+
+	printf("\nBuckets between the two ***-marked buckets(included) will be saved:\n");
+	for (int i = 0; i < BUCKET_NUM; i++)
+	{
+		if (i == cutMinId or i == cutMaxId)
+		{
+			printf("********** %d: \t%d\n", i, bucketCount[i]);
+		} else {
+			printf("%d: \t%d\n", i, bucketCount[i]);
+		}
+	}
+	printf("\n\n");
+
+
+	// 第二轮读取，计算像素值
+	int tmpPixel;
+	UCHAR tmpGrey;
+	long cutLowerCount = 0, cutUpperCount = 0;
+	for (int i = 0; i < imHeight; i++)
+	{
+		lineLen = mrcData.readLine(imLine, 0, i);  // When (lineLen > imWidth), the RAM will be confused.
+		lineLen = lineLen / imWordLength;
+		if (lineLen != imWidth) {
+			printf("********** MRC data format error! **********\n");
+			printf("Line: %d: Pixel-numbers = %d,\timWidth(getNx) = %d\n", i, lineLen, imWidth);
+		}
+
+		for (int j = 0; j < lineLen; j++)
+		{
+			bucketId = (int)((imLine[j] - imMin) / bucketLen);
+			if (bucketId < cutMinId)
+			{
+				cutLowerCount += 1;
+				tmpPixel = 0;
+			}
+			else if (bucketId > cutMaxId)
+			{
+				cutUpperCount += 1;
+				tmpPixel = 255;
+			}
+			else
+			{
+				// [1, 254]
+				tmpPixel = 1 + (int)(253 * (bucketId - cutMinId) / (cutMaxId - cutMinId));
+			}
+			
 			tmpGrey = (UCHAR)tmpPixel;
 			BMP_SetPixelRGB(bmpOutput, j, i, tmpGrey, tmpGrey, tmpGrey);
 		}
 	}
+	printf("CutMinId = \t%d\n", cutMinId);
+	printf("CutMaxId = \t%d\n", cutMaxId);
+	printf("Pixel-Total:\t%ld\n", imSize);
+	printf("Pixel-Cut-Lower:\t%ld\n", cutLowerCount);
+	printf("Pixel-Cut-Upper:\t%ld\n", cutUpperCount);
 
-
-	/* Draw Box */
-	for (int i = 0; i < starData.getTotalNum(); i++)
+	if (fileNameStar != NULL)
 	{
-		drawBox(bmpOutput, starData.getX(i), starData.getY(i), imWidth, imHeight);
-		fprintfSVM(mrcData, svmFile, starData.getX(i), starData.getY(i), imWidth, imHeight);
+		/* Read Star File */
+		int starPointNum = preGetTotalNum(fileNameStar);  // Test .star file and printf the star-point num.
+		if (starPointNum < 0)
+		{
+			return -3;
+		}
+		MRCStar starData = MRCStar(fileNameStar, starPointNum);
+
+		/* Draw Box */
+		for (int i = 0; i < starData.getTotalNum(); i++)
+		{
+			drawBox(bmpOutput, starData.getX(i), starData.getY(i), imWidth, imHeight);
+			if (svmFile != NULL) fprintfSVM(mrcData, svmFile, starData.getX(i), starData.getY(i), imWidth, imHeight);
+		}
+
+
+		/* Rand() */
+		srand((unsigned int)time(0));
+		double negNum1 = rand() % 100;
+		double negNum2 = 0.5 + negNum1 / 100.0;
+		int negNum = (int)(negNum2 * starData.getTotalNum());
+
+		int negX, negY;
+		for (int i = 0; i < negNum; i++)
+		{
+			negX = rand() % imWidth;
+			negY = rand() % imHeight;
+			drawBox(bmpOutput, negX, negY, imWidth, imHeight, BOX_SIDE_LENGTH, 255, 0, 0);
+			if (svmFile != NULL) fprintfSVM(mrcData, svmFile, negX, negY, imWidth, imHeight, BOX_SIDE_LENGTH, -1);
+		}
 	}
-
-
-	/* Rand() */
-	srand((unsigned int)time(0));
-	double negNum1 = rand() % 100;
-	double negNum2 = 0.5 + negNum1 / 100.0;
-	int negNum = (int)(negNum2 * starData.getTotalNum());
-
-	int negX, negY;
-	for (int i = 0; i < negNum; i++)
-	{
-		negX = rand() % imWidth;
-		negY = rand() % imHeight;
-		drawBox(bmpOutput, negX, negY, imWidth, imHeight, BOX_SIDE_LENGTH, 255, 0, 0);
-		fprintfSVM(mrcData, svmFile, negX, negY, imWidth, imHeight, BOX_SIDE_LENGTH, -1);
-	}
-
 	
 	/* Save Result */
 	char bmpFileName[FILE_NAME_LENGTH] = "";

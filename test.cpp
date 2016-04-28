@@ -1,3 +1,5 @@
+// UTF-8
+
 #include <iostream>
 #include <fstream>
 #include "mrc.h"
@@ -9,33 +11,13 @@ extern "C" {
 #include <stdlib.h>
 #include <algorithm>
 #include <string.h>
-#define BUCKET_NUM 100
-#define CUT_LOW 0
-#define CUT_UP 1
+
+#define CUT_LOW 0.00001
+#define CUT_UP 0.99999
 
 #include "read_file.h"
 
 using namespace std;
-
-int main3()
-{
-	char fileNameMrc[] = "Data/1.mrc";
-	MRC mrcData(fileNameMrc, "rb");
-	if (mrcData.m_header.nx == -31415)
-	{
-		return -1;
-	}
-
-	// printf("File < %s > has been read:\n", fileNameMrc);
-	// printf("MRC Header:\n-----------------------\n");
-	// // mrcData.printInfo();
-	// printf("--------------------------\n");
-
-	FILE* f = fopen("Data/svm.ddd", "w+");
-	read_MRC_And_Star(fileNameMrc, "Data/1.star", f);
-
-	return 0;
-}
 
 int main()
 {
@@ -43,7 +25,7 @@ int main()
 	MRC mrcData(fileNameMrc, "rb");
 	if (mrcData.m_header.nx == -31415)
 	{
-		// 'nx = -31415' marks whether the .mrc file has been read.
+		// 'nx = -31415' marks whether this .mrc file has been read.
 		return -1;
 	}
 
@@ -54,7 +36,7 @@ int main()
 
 	int imWidth = mrcData.getNx();
 	int imHeight = mrcData.getNy();
-	int imSize = imWidth * imHeight;
+	long imSize = imWidth * imHeight;
 	int imWordLength = mrcData.getWordLength();
 
 	BMP* bmpOutput = BMP_Create(imWidth, imHeight, 24);
@@ -65,7 +47,8 @@ int main()
 
 
 
-	int bucketCount[BUCKET_NUM];
+	// 第一轮读取，统计各桶像素数
+	int bucketCount[BUCKET_NUM];  // 桶的编号从0开始
 	memset((void *)bucketCount, 0, sizeof(bucketCount));
 	float bucketLen = (imMax - imMin) / BUCKET_NUM;
 
@@ -94,21 +77,19 @@ int main()
 			bucketCount[bucketId] += 1;
 		}
 	}
-	for (int i = 0; i < BUCKET_NUM; i++)
-	{
-		printf("%d: \t%d\n", i, bucketCount[i]);
-	}
-	printf("\n\n");
 
 	// Search for the BucketCutPosition
-	int cutMinId = BUCKET_NUM, cutMaxId = 0;  // cutMinId.leftBound <= ?? <= cutMaxId.rightBount
+	int cutMinId = BUCKET_NUM, cutMaxId = 0;  // cutMinId.leftBound <= *** <= cutMaxId.rightBount
+	bool minGot = false;
 	long tmpPixelCount = 0;
 	for (int i = 0; i < BUCKET_NUM; i++)
 	{
 		tmpPixelCount += bucketCount[i];
-		if (imSize * CUT_LOW < (double)tmpPixelCount)
+		if (!minGot && imSize * CUT_LOW <= (double)tmpPixelCount)
 		{
-			cutMinId = min(cutMinId, i);
+			// cutMinId = min(cutMinId, i);
+			cutMinId = i;
+			minGot = true;
 		}
 		if ((double)tmpPixelCount >= imSize * CUT_UP)
 		{
@@ -117,40 +98,60 @@ int main()
 		}
 	}
 
+	printf("\nBuckets between the two ***-marked buckets(included) will be saved:\n");
+	for (int i = 0; i < BUCKET_NUM; i++)
+	{
+		if (i == cutMinId or i == cutMaxId)
+		{
+			printf("********** %d: \t%d\n", i, bucketCount[i]);
+		} else {
+			printf("%d: \t%d\n", i, bucketCount[i]);
+		}
+	}
+	printf("\n\n");
 
 
-
-
+	// 第二轮读取，计算像素值
 	int tmpPixel;
 	UCHAR tmpGrey;
-
+	long cutLowerCount = 0, cutUpperCount = 0;
 	for (int i = 0; i < imHeight; i++)
 	{
 		lineLen = mrcData.readLine(imLine, 0, i);  // When (lineLen > imWidth), the RAM will be confused.
 		lineLen = lineLen / imWordLength;
 		if (lineLen != imWidth) {
-			printf("********** MRC data format error! Line: %d: Pixel-numbers = %d\timWidth(getNx) = %d\n", i, lineLen, imWidth);
+			printf("********** MRC data format error! **********\n");
+			printf("Line: %d: Pixel-numbers = %d,\timWidth(getNx) = %d\n", i, lineLen, imWidth);
 		}
 
 		for (int j = 0; j < lineLen; j++)
 		{
-			if (imLine[j] < cutMinId * bucketLen + imMin)
+			bucketId = (int)((imLine[j] - imMin) / bucketLen);
+			if (bucketId < cutMinId)
 			{
+				cutLowerCount += 1;
 				tmpPixel = 0;
 			}
-			else if (imLine[j] > (cutMaxId + 1) * bucketLen + imMin)
+			else if (bucketId > cutMaxId)
 			{
+				cutUpperCount += 1;
 				tmpPixel = 255;
 			}
 			else
 			{
-				tmpPixel = (int)((imLine[j] - cutMinId * bucketLen - imMin) / (bucketLen * (cutMaxId + 1 - cutMinId)) * 255);
+				// [1, 254]
+				tmpPixel = 1 + (int)(253 * (bucketId - cutMinId) / (cutMaxId - cutMinId));
 			}
-			//tmpPixel = (int)((imLine[j] - imMin) / (imMax - imMin) * 255);  // ----------
-			tmpGrey = (UCHAR)0;
+			
+			tmpGrey = (UCHAR)tmpPixel;
 			BMP_SetPixelRGB(bmpOutput, j, i, tmpGrey, tmpGrey, tmpGrey);
 		}
 	}
+	printf("CutMinId = \t%d\n", cutMinId);
+	printf("CutMaxId = \t%d\n", cutMaxId);
+	printf("Pixel-Total:\t%ld\n", imSize);
+	printf("Pixel-Cut-Lower:\t%ld\n", cutLowerCount);
+	printf("Pixel-Cut-Upper:\t%ld\n", cutUpperCount);
 
 	/* Save Result */
 	char bmpFileName[100] = "";

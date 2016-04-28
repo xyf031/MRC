@@ -6,7 +6,12 @@
 #include "read_file.h"
 
 
-int main()
+int main() {
+	read_MRC_And_Star("Data/1.mrc");
+	return 0;
+}
+/*
+int main0()
 {
 	printf("\n");
 	// http://blog.csdn.net/onlyonename/article/details/8521492
@@ -64,3 +69,4 @@ int main()
 	printf("\n\n");
 	return 0;
 }
+*/
