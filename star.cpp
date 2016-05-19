@@ -1,9 +1,10 @@
-// Version: 2016-03-20-21:05
+// Version: 2016-05-10-15:40
 // By: Xiao Yi Fan
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "star.h"
 
 
@@ -12,7 +13,7 @@ int preGetTotalNum(const char* filename)
 	FILE* starFile = fopen(filename, "r");
 	if (starFile == NULL)
 	{
-		printf("********** ERROR **********\nFile <%s> can not open.\n", filename);
+		printf("********** ERROR **********\nStar File <%s> can not open.\n", filename);
 		return -1;
 	}
 

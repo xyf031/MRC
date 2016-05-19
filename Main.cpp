@@ -1,15 +1,19 @@
+
 #include <stdio.h>
 // #include <io.h>
 // #include <direct.h>
-#include <string.h>
+// #include <string.h>
 
 #include "read_file.h"
 
 
 int main() {
-	read_MRC_And_Star("Data/1.mrc");
+	// FILE* svm = fopen("Data/svm.txt", "w");
+	// read_MRC_And_Star("Data/1.mrc", "Data/1.star", true, svm);
+	read_MRC_And_Star("Data/1.mrc", "Data/1.star", true);
 	return 0;
 }
+
 /*
 int main0()
 {
