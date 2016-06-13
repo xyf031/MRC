@@ -1,76 +1,42 @@
 
 #include <stdio.h>
-// #include <io.h>
-// #include <direct.h>
-// #include <string.h>
+#include <stdlib.h>
+
 
 #include "read_file.h"
 
+using namespace std;
 
 int main() {
-	// FILE* svm = fopen("Data/svm.txt", "w");
-	// read_MRC_And_Star("Data/1.mrc", "Data/1.star", true, svm);
-	read_MRC_And_Star("Data/1.mrc", "Data/1.star", true);
+	char fileRoot[] = "/Users/XYF/Desktop/Image";
+	char shell[FILE_NAME_LENGTH];
+	sprintf(shell, "ls %s > Data/ProteinList.tmp", fileRoot);
+	system(shell);
+
+	FILE *dirName = fopen("Data/ProteinList.tmp", "r");
+	FILE *fname;
+	char proteinName[FILE_NAME_LENGTH];
+	char mrcName[FILE_NAME_LENGTH];
+	char starName[FILE_NAME_LENGTH];
+	char a[FILE_NAME_LENGTH];
+	char b[FILE_NAME_LENGTH];
+	while(fscanf(dirName, "%s", proteinName) > 0) {
+		printf("\n--- %s/%s ---\n", fileRoot, proteinName);
+		sprintf(shell, "ls %s/%s > Data/FileList.tmp", fileRoot, proteinName);
+		system(shell);
+
+		fname = fopen("Data/FileList.tmp", "r");
+		while(fscanf(fname, "%s", mrcName) > 0) {
+			fscanf(fname, "%s", starName);
+			sprintf(a, "%s/%s/%s", fileRoot, proteinName, mrcName);
+			sprintf(b, "%s/%s/%s", fileRoot, proteinName, starName);
+			printf("%s\n", b);
+			read_MRC_And_Star(a, b, true);
+		}
+		fclose(fname);
+	}
+	fclose(dirName);
+
 	return 0;
 }
 
-/*
-int main0()
-{
-	printf("\n");
-	// http://blog.csdn.net/onlyonename/article/details/8521492
-	// http://jacoxu.com/?p=118
-	// svm-train [options] training_set_file [model_file]
-	// svm-predict [options] test_file model_file output_file
-	// svm-train.exe 1.data output.model
-	// svm-predict.exe 1.data output.model output.file
-
-
-	char root[] = "~/Data/";
-	char mrcRoot[FILE_NAME_LENGTH] = "";
-	//strcat(mrcRoot, root);
-	//strcat(mrcRoot, "*.mrc");
-
-	char starRoot[FILE_NAME_LENGTH] = "";
-	strcat(starRoot, root);
-	strcat(starRoot, "*.star");
-
-	char fileNameSvm[FILE_NAME_LENGTH] = "";
-	strcat(fileNameSvm, root);
-	strcat(fileNameSvm, "#.svm.data");
-
-	FILE* svmFile = fopen(fileNameSvm, "w");
-
-	char fileNameMrc[FILE_NAME_LENGTH] = "";
-	char fileNameStar[FILE_NAME_LENGTH] = "";
-
-	_finddata_t starList;
-	long tmpResult;
-
-	printf("%s \t %s\n", mrcRoot, starRoot);
-	if ((tmpResult = _findfirst(starRoot, &starList)) == -1l)
-	{
-		printf("No Star file in %s\n", root);
-		return 0;
-	}
-	else {
-		do {
-			strcpy(fileNameStar, root);
-			strcat(fileNameStar, starList.name);			
-
-			strcpy(fileNameMrc, "");
-			strncat(fileNameMrc, fileNameStar, strlen(fileNameStar) - strlen("_manual_lgc.star"));
-			strcat(fileNameMrc, ".mrc");
-			printf(":::::%s \t %s\n", fileNameMrc, fileNameStar);
-			
-			read_MRC_And_Star(fileNameMrc, fileNameStar, svmFile);
-
-		} while (_findnext(tmpResult, &starList) == 0);
-	}
-
-	fclose(svmFile);
-
-	printf("\n\n");
-	return 0;
-}
-*/

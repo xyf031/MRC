@@ -14,7 +14,7 @@ extern "C" {
 #include "qdbmp.h"
 }
 
-#define FILE_NAME_LENGTH 100
+#define FILE_NAME_LENGTH 300
 #define BMP_DEPTH 24
 #define BOX_SIDE_LENGTH 100
 
@@ -255,7 +255,6 @@ int modify_mrc(const char* fileNameMrc)
 int read_MRC_And_Star(const char* fileNameMrc, const char* fileNameStar = NULL, bool modifyMRC = false, FILE* svmFile = NULL) {
 	/* Return: -1 -> MRC File Not Exist;  -2 -> MRC readLine() Fails;  -3 -> Star File Not Exist;  -4*/
 
-
 	/* Read MRC and Print Info */
 	MRC mrcData(fileNameMrc, "rb");
 	if (mrcData.m_header.nx == -31415)
@@ -288,7 +287,7 @@ int read_MRC_And_Star(const char* fileNameMrc, const char* fileNameStar = NULL, 
 	if (modifyMRC && mrcData.getMean() > 0)
 	{
 		mrcData.close();
-		modify_mrc(fileNameMrc);
+		modify_mrc(fileNameMrc);  // Here
 		mrcData.open(fileNameMrc, "rb");
 
 		printf("\n************************ After Modify MRC Header:\n");
