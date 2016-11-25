@@ -3,8 +3,6 @@
 
 #pragma once
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #define COLUMN_NUM 5
 #define HEADER_LENGTH 50

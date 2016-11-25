@@ -1,6 +1,10 @@
 // Version: 2016-05-10-15:40
 // By: Xiao Yi Fan
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "star.h"
 
 
