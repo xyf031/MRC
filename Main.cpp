@@ -43,10 +43,13 @@ void mode2 (const char* fileRoot) {
 	sprintf(starTxtPath, "%s/star.txt", fileRoot);
 
 	char mrcPath[FILE_NAME_LENGTH], starPath[FILE_NAME_LENGTH];
+	int mrcPathLen = 0;
 	FILE *fmrc = fopen(mrcTxtPath, "r");
 	FILE *fstar = fopen(starTxtPath, "r");
 	while (fscanf(fmrc, "%s", mrcPath) > 0) {
 		fscanf(fstar, "%s", starPath);
+		mrcPathLen = strlen(mrcPath);
+		mrcPath[mrcPathLen - 4] = '\0';
 		read_MRC_And_Star(mrcPath, false, true, starPath);
 	}
 	fclose(fmrc);
