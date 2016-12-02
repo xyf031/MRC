@@ -3,6 +3,7 @@
 // By Xiao Yifan
 
 #include "readMrcStar.h"
+#include <stdlib.h>
 
 
 int read_MRC_And_Star(const char* fileNameMrc, bool modifyMRC, bool getBmp, const char* fileNameStar) {
@@ -38,11 +39,11 @@ int read_MRC_And_Star(const char* fileNameMrc, bool modifyMRC, bool getBmp, cons
 
 
 	/* Cut Pixel */
-	if (modifyMRC && mrcData.getMean() > 0)
+	if (modifyMRC)
 	{
-		// If the .mrc has been modified, getMean() will be -3.1415.
 		mrcData.close();
-		modify_mrc(fileNameMrc);  // Here
+		// modify_mrc_cut(fileNameMrc);  // Here
+		modify_mrc_histeq(fileNameMrc);
 		mrcData.open(fileNameMrc, "rb");
 
 		printf("\n************************ After Modify MRC Header:\n");
@@ -123,8 +124,12 @@ int read_MRC_And_Star(const char* fileNameMrc, bool modifyMRC, bool getBmp, cons
 }
 
 
-int modify_mrc(const char* fileNameMrc)
+int modify_mrc_cut(const char* fileNameMrc)
 {
+	char shell[FILE_NAME_LENGTH];
+	sprintf(shell, "cp %s %sold", fileNameMrc, fileNameMrc);
+	system(shell);
+
 	MRC mrcData(fileNameMrc, "rb+");
 	int imWidth = mrcData.getNx();
 	int imHeight = mrcData.getNy();
@@ -210,6 +215,7 @@ int modify_mrc(const char* fileNameMrc)
 
 
 	// 第二轮读取，计算像素值
+	double imMean = 0.0;
 	long cutLowerCount = 0, cutUpperCount = 0;
 	for (int i = 0; i < imHeight; i++)
 	{
@@ -222,11 +228,13 @@ int modify_mrc(const char* fileNameMrc)
 			if (bucketId < cutMinId)
 			{
 				cutLowerCount += 1;
+				imMean += imMin + cutMinId * bucketLen;
 				imLine[j] = imMin + cutMinId * bucketLen;
 			}
 			else if (bucketId > cutMaxId)
 			{
 				cutUpperCount += 1;
+				imMean += imMin + (cutMaxId + 1) * bucketLen;
 				imLine[j] = imMin + (cutMaxId + 1) * bucketLen;
 			}
 		}
@@ -240,9 +248,96 @@ int modify_mrc(const char* fileNameMrc)
 
 	mrcData.m_header.dmin = imMin + cutMinId * bucketLen;
 	mrcData.m_header.dmax = imMin + (cutMaxId + 1) * bucketLen;
-	mrcData.m_header.dmean = -3.1415;
+	mrcData.m_header.dmean = (float)(imMean / imSize);
 	mrcData.m_header.nlabels += 1;
-	strcpy(mrcData.m_header.label[mrcData.m_header.nlabels - 1], "Modified by XYF.");
+	strcpy(mrcData.m_header.label[mrcData.m_header.nlabels - 1], "Modified by XYF in CUT method.");
+	mrcData.updateHeader();
+	mrcData.close();
+
+	return 0;
+}
+
+
+int modify_mrc_histeq(const char* fileNameMrc)
+{
+	char shell[FILE_NAME_LENGTH];
+	sprintf(shell, "cp %s %sold", fileNameMrc, fileNameMrc);
+	system(shell);
+
+	MRC mrcData(fileNameMrc, "rb+");
+	int imWidth = mrcData.getNx();
+	int imHeight = mrcData.getNy();
+	long imSize = imWidth * imHeight;
+	int imWordLength = mrcData.getWordLength();
+	float imMin = mrcData.getMin();
+	float imMax = mrcData.getMax();
+	float* imLine = (float*)malloc((size_t)((int)(imWidth * 1.1) * sizeof(float)));
+	int lineLen = 0;
+
+	
+	// Find Quantiles
+	// 第一轮读取，统计各桶像素数
+	int bucketCount[BUCKET_NUM];  // 桶的编号从0开始
+	memset((void *)bucketCount, 0, sizeof(bucketCount));
+	float bucketLen = (imMax - imMin) / BUCKET_NUM;
+
+	int bucketId;
+	for (int i = 0; i < imHeight; i++)
+	{
+		lineLen = mrcData.readLine(imLine, 0, i);  // When (lineLen > imWidth), the RAM will be confused.
+		lineLen = lineLen / imWordLength;
+		if (lineLen != imWidth) {
+			printf("********** MRC data format error! **********\n");
+			printf("Line: %d: Pixel-numbers = %d,\timWidth(getNx) = %d\n", i, lineLen, imWidth);
+		}
+
+		for (int j = 0; j < lineLen; j++)
+		{
+			bucketId = (int)((imLine[j] - imMin) / bucketLen);
+			if (imLine[j] <= imMin)
+			{
+				printf("##### MinGet #####\n");
+			}
+			if (imLine[j] >= imMax)
+			{
+				printf("##### MaxGet #####\n");
+				bucketId = BUCKET_NUM - 1;  // 其他区间都是左闭右开，这里把最后一个桶改成全闭区间
+			}
+			bucketCount[bucketId] += 1;
+		}
+	}
+
+	// Get the CDF() transform function.
+	double cdf[BUCKET_NUM];
+	long cdfSum = 0;
+	for (int i = 0; i < BUCKET_NUM; ++i)
+	{
+		cdfSum += bucketCount[i];
+		cdf[i] = (1.0 * cdfSum) / imSize;
+	}
+
+
+	// 第二轮读取，计算像素值
+	double imMean = 0.0;
+	// long cutLowerCount = 0, cutUpperCount = 0;
+	for (int i = 0; i < imHeight; i++)
+	{
+		lineLen = mrcData.readLine(imLine, 0, i);  // When (lineLen > imWidth), the RAM will be confused.
+		lineLen = lineLen / imWordLength;
+
+		for (int j = 0; j < lineLen; j++)
+		{
+			bucketId = (int)((imLine[j] - imMin) / bucketLen);
+			imMean += cdf[bucketId] * (imMax - imMin) + imMin;
+			imLine[j] = cdf[bucketId] * (imMax - imMin) + imMin;
+		}
+		mrcData.writeLine(imLine, 0, i);
+	}
+	printf("Hist-Eq finished!\n");
+	
+	mrcData.m_header.dmean = (float)(imMean / imSize);
+	mrcData.m_header.nlabels += 1;
+	strcpy(mrcData.m_header.label[mrcData.m_header.nlabels - 1], "Modified by XYF in HISTEQ method.");
 	mrcData.updateHeader();
 	mrcData.close();
 

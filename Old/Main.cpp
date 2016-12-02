@@ -1,42 +1,83 @@
 
+// Version: 2016-11-24-21:00
+// By Xiao Yifan
+
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "readMrcStar.h"
+void mode1 (const char* fileRoot);
+void mode2 (const char* fileRoot);
+void mode3 (const char* fileRoot);
 
-#include "read_file.h"
 
-using namespace std;
-
-int main() {
-	char fileRoot[] = "/Users/XYF/Desktop/Image";
-	char shell[FILE_NAME_LENGTH];
-	sprintf(shell, "ls %s > Data/ProteinList.tmp", fileRoot);
-	system(shell);
-
-	FILE *dirName = fopen("Data/ProteinList.tmp", "r");
-	FILE *fname;
-	char proteinName[FILE_NAME_LENGTH];
-	char mrcName[FILE_NAME_LENGTH];
-	char starName[FILE_NAME_LENGTH];
-	char a[FILE_NAME_LENGTH];
-	char b[FILE_NAME_LENGTH];
-	while(fscanf(dirName, "%s", proteinName) > 0) {
-		printf("\n--- %s/%s ---\n", fileRoot, proteinName);
-		sprintf(shell, "ls %s/%s > Data/FileList.tmp", fileRoot, proteinName);
-		system(shell);
-
-		fname = fopen("Data/FileList.tmp", "r");
-		while(fscanf(fname, "%s", mrcName) > 0) {
-			fscanf(fname, "%s", starName);
-			sprintf(a, "%s/%s/%s", fileRoot, proteinName, mrcName);
-			sprintf(b, "%s/%s/%s", fileRoot, proteinName, starName);
-			printf("%s\n", b);
-			read_MRC_And_Star(a, b, true);
-		}
-		fclose(fname);
+int main(int argc, char* argv[]) {
+	switch (argc) {
+		case 1: mode1("."); break;
+		case 2: mode1(argv[1]); break;
+		case 3: 
+			if (*argv[2] == '0') {
+				mode3(argv[1]);
+			} else {
+				mode2(argv[1]);
+			}
+			break;
+		default: mode2(argv[1]); break;
 	}
-	fclose(dirName);
-
 	return 0;
 }
 
+
+void mode1 (const char* fileRoot) {
+	char shell[FILE_NAME_LENGTH];
+	sprintf(shell, "ls %s/*.mrc > %s/all_mrc.tmp", fileRoot, fileRoot);
+	system(shell);
+
+	sprintf(shell, "%s/all_mrc.tmp", fileRoot);
+	FILE *f = fopen(shell, "r");
+	char mrcPath[FILE_NAME_LENGTH];
+	while (fscanf(f, "%s", mrcPath) > 0) {
+		read_MRC_And_Star(mrcPath, true, true);
+		printf("MRC modified:\t\t\t%s\n", mrcPath);
+	}
+	fclose(f);
+	sprintf(shell, "rm %s/all_mrc.tmp", fileRoot);
+	system(shell);
+}
+
+
+void mode2 (const char* fileRoot) {
+	char mrcTxtPath[FILE_NAME_LENGTH], starTxtPath[FILE_NAME_LENGTH];
+	sprintf(mrcTxtPath, "%s/mrc.txt", fileRoot);
+	sprintf(starTxtPath, "%s/star.txt", fileRoot);
+
+	char mrcPath[FILE_NAME_LENGTH], starPath[FILE_NAME_LENGTH];
+	int mrcPathLen = 0;
+	FILE *fmrc = fopen(mrcTxtPath, "r");
+	FILE *fstar = fopen(starTxtPath, "r");
+	while (fscanf(fmrc, "%s", mrcPath) > 0) {
+		fscanf(fstar, "%s", starPath);
+		mrcPathLen = strlen(mrcPath);
+		mrcPath[mrcPathLen - 4] = '\0';
+		read_MRC_And_Star(mrcPath, false, true, starPath);
+	}
+	fclose(fmrc);
+	fclose(fstar);
+}
+
+void mode3 (const char* fileRoot) {
+	char shell[FILE_NAME_LENGTH];
+	sprintf(shell, "ls %s/*.mrc > %s/all_mrc.tmp", fileRoot, fileRoot);
+	system(shell);
+
+	sprintf(shell, "%s/all_mrc.tmp", fileRoot);
+	FILE *f = fopen(shell, "r");
+	char mrcPath[FILE_NAME_LENGTH];
+	while (fscanf(f, "%s", mrcPath) > 0) {
+		read_MRC_And_Star(mrcPath, false, true);
+		// printf("MRC modified:\t\t\t%s\n", mrcPath);
+	}
+	fclose(f);
+	sprintf(shell, "rm %s/all_mrc.tmp", fileRoot);
+	system(shell);
+}

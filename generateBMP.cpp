@@ -1,5 +1,5 @@
 
-// Version: 2016-11-24-21:00
+// Version: 2016-12-01-22:00
 // By Xiao Yifan
 
 #include <stdio.h>
@@ -33,7 +33,8 @@ void mode1 (const char* fileRoot) {
 	sprintf(shell, "ls %s/*.mrc > %s/all_mrc.tmp", fileRoot, fileRoot);
 	system(shell);
 
-	FILE *f = fopen("all_mrc.tmp", "r");
+	sprintf(shell, "%s/all_mrc.tmp", fileRoot);
+	FILE *f = fopen(shell, "r");
 	char mrcPath[FILE_NAME_LENGTH];
 	while (fscanf(f, "%s", mrcPath) > 0) {
 		read_MRC_And_Star(mrcPath, true, true);
@@ -46,7 +47,8 @@ void mode1 (const char* fileRoot) {
 
 
 void mode2 (const char* fileRoot) {
-	char mrcTxtPath[FILE_NAME_LENGTH], starTxtPath[FILE_NAME_LENGTH];
+	char mrcTxtPath[FILE_NAME_LENGTH], starTxtPath[FILE_NAME_LENGTH], shell[FILE_NAME_LENGTH];
+	bool isBmp = false;
 	sprintf(mrcTxtPath, "%s/mrc.txt", fileRoot);
 	sprintf(starTxtPath, "%s/star.txt", fileRoot);
 
@@ -54,22 +56,47 @@ void mode2 (const char* fileRoot) {
 	int mrcPathLen = 0;
 	FILE *fmrc = fopen(mrcTxtPath, "r");
 	FILE *fstar = fopen(starTxtPath, "r");
+
+	if (fstar == NULL)
+	{
+		sprintf(shell, "python analyse_dataset.py %s mrc", fileRoot);
+		system(shell);
+		// sleep(1);
+		FILE *fmrc = fopen(mrcTxtPath, "r");
+		FILE *fstar = fopen(starTxtPath, "r");
+	}
+	if (fmrc == NULL)
+	{
+		sprintf(shell, "python analyse_dataset.py %s bmp", fileRoot);
+		system(shell);
+		// sleep(1);
+		sprintf(mrcTxtPath, "%s/bmp.txt", fileRoot);
+		isBmp = true;
+		FILE *fmrc = fopen(mrcTxtPath, "r");
+		FILE *fstar = fopen(starTxtPath, "r");
+	}
+
 	while (fscanf(fmrc, "%s", mrcPath) > 0) {
 		fscanf(fstar, "%s", starPath);
-		mrcPathLen = strlen(mrcPath);
-		mrcPath[mrcPathLen - 4] = '\0';
+		if (isBmp)
+		{
+			mrcPathLen = strlen(mrcPath);
+			mrcPath[mrcPathLen - 4] = '\0';
+		}
 		read_MRC_And_Star(mrcPath, false, true, starPath);
 	}
 	fclose(fmrc);
 	fclose(fstar);
 }
 
+
 void mode3 (const char* fileRoot) {
 	char shell[FILE_NAME_LENGTH];
 	sprintf(shell, "ls %s/*.mrc > %s/all_mrc.tmp", fileRoot, fileRoot);
 	system(shell);
 
-	FILE *f = fopen("all_mrc.tmp", "r");
+	sprintf(shell, "%s/all_mrc.tmp", fileRoot);
+	FILE *f = fopen(shell, "r");
 	char mrcPath[FILE_NAME_LENGTH];
 	while (fscanf(f, "%s", mrcPath) > 0) {
 		read_MRC_And_Star(mrcPath, false, true);
