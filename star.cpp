@@ -1,4 +1,5 @@
-// Version: 2016-05-10-15:40
+
+// Version: 2016-12-06-10:00
 // By: Xiao Yi Fan
 
 #include "star.h"
@@ -28,7 +29,7 @@ int preGetTotalNum(const char* filename)
 	fclose(starFile);
 
 	tmpCount = tmpCount / COLUMN_NUM;
-	printf("\nStar Point Total Number is: %d\n", tmpCount);
+	printf("%s \tStar Point Total Number is: %d\n", filename, tmpCount);
 	return tmpCount;
 }
 

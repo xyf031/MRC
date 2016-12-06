@@ -1,5 +1,6 @@
 ﻿
-// Version: 2016-11-24-21:00
+// 3.0 -- Almost Perfect!
+// Version: 2016-12-06-10:00
 // By Xiao Yifan
 
 #include "readMrcStar.h"
@@ -39,12 +40,19 @@ int read_MRC_And_Star(const char* fileNameMrc, bool modifyMRC, bool getBmp, cons
 
 
 	/* Cut Pixel */
+	char shell[FILE_NAME_LENGTH];
 	if (modifyMRC)
 	{
 		mrcData.close();
-		// modify_mrc_cut(fileNameMrc);  // Here
-		modify_mrc_histeq(fileNameMrc);
-		mrcData.open(fileNameMrc, "rb");
+		char fileNameMrcTmp[FILE_NAME_LENGTH];
+		sprintf(fileNameMrcTmp, "%stmp", fileNameMrc);  // Generate *.mrctmp file.
+		sprintf(shell, "cp %s %s", fileNameMrc, fileNameMrcTmp);
+		system(shell);
+		sprintf(shell, "rm %s", fileNameMrcTmp);
+
+		// modify_mrc_cut(fileNameMrcTmp);  // Here
+		modify_mrc_histeq(fileNameMrcTmp);
+		mrcData.open(fileNameMrcTmp, "rb");
 
 		printf("\n************************ After Modify MRC Header:\n");
 		mrcData.printInfo();
@@ -112,6 +120,8 @@ int read_MRC_And_Star(const char* fileNameMrc, bool modifyMRC, bool getBmp, cons
 	/* Save BMP */
 	char bmpFileName[FILE_NAME_LENGTH] = "";
 	strcat(bmpFileName, fileNameMrc);
+	int bmpFileLen = strlen(bmpFileName);
+	bmpFileName[bmpFileLen - 4] = '\0';  // Remove ".mrc"
 	if (fileNameStar != NULL) strcat(bmpFileName, "-boxes");
 	strcat(bmpFileName, ".bmp");
 	BMP_WriteFile(bmpOutput, bmpFileName);
@@ -120,15 +130,16 @@ int read_MRC_And_Star(const char* fileNameMrc, bool modifyMRC, bool getBmp, cons
 
 
 	mrcData.close();
+	if (modifyMRC) system(shell);  // Remove *.mrctmp file
 	return 0;
 }
 
 
 int modify_mrc_cut(const char* fileNameMrc)
 {
-	char shell[FILE_NAME_LENGTH];
-	sprintf(shell, "cp %s %sold", fileNameMrc, fileNameMrc);
-	system(shell);
+	// char shell[FILE_NAME_LENGTH];
+	// sprintf(shell, "cp %s %sold", fileNameMrc, fileNameMrc);
+	// system(shell);
 
 	MRC mrcData(fileNameMrc, "rb+");
 	int imWidth = mrcData.getNx();
@@ -260,9 +271,9 @@ int modify_mrc_cut(const char* fileNameMrc)
 
 int modify_mrc_histeq(const char* fileNameMrc)
 {
-	char shell[FILE_NAME_LENGTH];
-	sprintf(shell, "cp %s %sold", fileNameMrc, fileNameMrc);
-	system(shell);
+	// char shell[FILE_NAME_LENGTH];
+	// sprintf(shell, "cp %s %sold", fileNameMrc, fileNameMrc);
+	// system(shell);
 
 	MRC mrcData(fileNameMrc, "rb+");
 	int imWidth = mrcData.getNx();
