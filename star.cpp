@@ -1,5 +1,5 @@
 
-// Version: 2016-12-06-10:00
+// Version: 2016-12-09-12:00
 // By: Xiao Yi Fan
 
 #include "star.h"
@@ -53,7 +53,9 @@ MRCStar::MRCStar(const char *filename, int totalnum)
 
 	while (!feof(starFile))
 	{
-		fscanf(starFile, "%s", tmpChar);
+		int end = fscanf(starFile, "%s", tmpChar);
+		if (end < 0) break;
+
 		if (sscanf(tmpChar, "%f", &tmpNum) != 0)
 		{
 			switch (colCount)

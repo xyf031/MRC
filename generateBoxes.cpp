@@ -11,7 +11,7 @@
 void mode1 (const char* fileRoot);  // Ignore *.star, just need *.mrc
 void mode2 (const char* fileRoot);  // Include *.star into the *.boxes
 
-int boxesForSingleImage(const char* mrcPath, int roiN = 3000, const char* starPath = NULL);
+int boxesForSingleImage(const char* mrcPath, int roiN = 40000, const char* starPath = NULL);
 
 
 int main(int argc, char* argv[]) {
@@ -55,8 +55,8 @@ void mode2 (const char* fileRoot) {
 	// Read *.star, include in *.boxes. And convert into *.gtroi
 	// Need *.mrc, *.star, mrc.txt, star.txt
 
-	printf("MODE 2 begins! Run the shell below FIRST!\n");
-	printf("python /home/name/mrcfiles mrc\n");
+	printf("\nMODE 2 begins! Run the shell below FIRST!\n");
+	printf("python /home/name/mrcfiles mrc\n\n");
 
 	char mrcTxtPath[FILE_NAME_LENGTH], starTxtPath[FILE_NAME_LENGTH];
 	sprintf(mrcTxtPath, "%s/mrc.txt", fileRoot);
@@ -102,7 +102,7 @@ void mode2 (const char* fileRoot) {
 		// 	mrcPath[mrcPathLen - 2] = 'r';
 		// 	mrcPath[mrcPathLen - 1] = 'c';
 		// }
-		boxesForSingleImage(mrcPath, 3000, starPath);
+		boxesForSingleImage(mrcPath, 40000, starPath);
 	}
 	fclose(fmrc);
 	fclose(fstar);
@@ -147,13 +147,13 @@ int boxesForSingleImage(const char* mrcPathIn, int roiN, const char* starPath) {
 		}
 		MRCStar starData = MRCStar(starPath, starPointNum);
 
-		sprintf(gtroiPath, "%s.gtroi", mrcPath);
+		sprintf(gtroiPath, "%s.gtroi", mrcPath);  // Keep *.gtroi filename the same as *.mrc, not *.star
 		FILE *fGT = fopen(gtroiPath, "w+");
 
 		int getX, getY;
 		for (int i = 0; i < starData.getTotalNum(); i++)
 		{
-			if (roiCount >= roiN) break;
+			// if (roiCount >= roiN) break;
 			getX = starData.getX(i) - BOX_SIDE_LENGTH/2;
 			getY = starData.getY(i) - BOX_SIDE_LENGTH/2;
 			X1[roiCount] = min(imWidth - 1 - BOX_SIDE_LENGTH, max(0, getX));  // [0, imWidth-1-BOX_SIDE_LENGTH]
@@ -171,12 +171,15 @@ int boxesForSingleImage(const char* mrcPathIn, int roiN, const char* starPath) {
 		fclose(fGT);
 	}
 
+	// roiCount = 0;  // --------- Here! ---------- Do NOT include gt-rois.
 	srand((unsigned)time(0));
 	// Slide begins.
-	int xBegin = rand() % BOX_SIDE_LENGTH;  // The begining of sliding-window is random.
-	int yBegin = rand() % BOX_SIDE_LENGTH;
-	int xStep = BOX_SIDE_LENGTH;  // This can be set to BOX_SIDE_LENGTH/10, BOX_SIDE_LENGTH/2, ...
-	int yStep = BOX_SIDE_LENGTH;
+	// int xBegin = rand() % BOX_SIDE_LENGTH;  // The begining of sliding-window is random.
+	// int yBegin = rand() % BOX_SIDE_LENGTH;
+	int xBegin = 0;
+	int yBegin = 0;
+	int xStep = BOX_SIDE_LENGTH / 5;  // This can be set to BOX_SIDE_LENGTH/10, BOX_SIDE_LENGTH/2, ...
+	int yStep = BOX_SIDE_LENGTH / 5;
 	for (int x1 = xBegin; x1 < imWidth - BOX_SIDE_LENGTH; x1 += xStep)
 	{
 		for (int y1 = yBegin; y1 < imHeight - BOX_SIDE_LENGTH; y1 += yStep)
