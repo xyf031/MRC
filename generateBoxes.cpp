@@ -171,7 +171,7 @@ int boxesForSingleImage(const char* mrcPathIn, int roiN, const char* starPath) {
 		fclose(fGT);
 	}
 
-	// roiCount = 0;  // --------- Here! ---------- Do NOT include gt-rois.
+	roiCount = 0;  // --------- Here! ---------- Do NOT include gt-rois.
 	srand((unsigned)time(0));
 	// Slide begins.
 	// int xBegin = rand() % BOX_SIDE_LENGTH;  // The begining of sliding-window is random.
@@ -192,13 +192,13 @@ int boxesForSingleImage(const char* mrcPathIn, int roiN, const char* starPath) {
 	}
 
 	// Random begins.
-	while (roiCount < roiN) {
-		xBegin = rand() % (imWidth - BOX_SIDE_LENGTH);
-		yBegin = rand() % (imHeight - BOX_SIDE_LENGTH);
-		X1[roiCount] = xBegin;
-		Y1[roiCount] = yBegin;
-		++roiCount;
-	}
+	// while (roiCount < roiN) {
+	// 	xBegin = rand() % (imWidth - BOX_SIDE_LENGTH);
+	// 	yBegin = rand() % (imHeight - BOX_SIDE_LENGTH);
+	// 	X1[roiCount] = xBegin;
+	// 	Y1[roiCount] = yBegin;
+	// 	++roiCount;
+	// }
 
 	// Write to file.
 	sprintf(boxPath, "%s.boxes", mrcPath);
@@ -208,7 +208,7 @@ int boxesForSingleImage(const char* mrcPathIn, int roiN, const char* starPath) {
 		delete[] Y1;
 		return -3;
 	}
-	for (int i = 0; i < roiN; ++i)
+	for (int i = 0; i < roiCount; ++i)
 	{
 		fprintf(fBox, "%d %d %d %d\r\n", X1[i], Y1[i], X1[i] + BOX_SIDE_LENGTH, Y1[i] + BOX_SIDE_LENGTH);
 	}
@@ -225,7 +225,7 @@ int boxesForSingleImage(const char* mrcPathIn, int roiN, const char* starPath) {
 			delete[] Y1;
 			return -3;
 		}
-		for (int i = 0; i < roiN; ++i)
+		for (int i = 0; i < roiCount; ++i)
 		{
 			fprintf(fStar, "%d %d 31 31 31\r\n", X1[i] + BOX_SIDE_LENGTH/2, Y1[i] + BOX_SIDE_LENGTH/2);
 		}
